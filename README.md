@@ -1,5 +1,5 @@
 
-<img src="https://i.imgur.com/xoEqTaZ.png" alt="logo" width="250px" height="250px">
+<img src="https://i.imgur.com/Rc3PHxt.jpeg" alt="logo" width="250px" height="250px">
 
 # Re-Tex - supporting OctoTex
 This tool will be heavily upgraded!
