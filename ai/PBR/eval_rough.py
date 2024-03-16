@@ -15,9 +15,7 @@ PATH_CHK = "checkpoints/Roughness/latest_net_G.pth"
 
 transformResize = transforms.Compose([
     transforms.Resize(2048),
-    transforms.Grayscale(),
-    transforms.ToTensor(),
-    transforms.Normalize(0.5, 0.5)
+    transforms.ToTensor()
     # outputs range from -1 to 1
 ])
 
@@ -52,14 +50,15 @@ def generateRough(net, DIR_FROM, DIR_EVAL):
 
     data_test = TestDataset(DIR_FROM)
     # print(batch_size)
-    testloader = DataLoader(data_test, batch_size=1, shuffle=False)
+    testloader = DataLoader(data_test, batch_size=1, shuffle=False,
+                            pin_memory=True)
 
     print("\nProcessing roughness files...")
 
     net.eval()
     with torch.no_grad():
         for idx, data in enumerate(testloader):
-            img_in = data[0].to(device).half()
+            img_in = data[0].to(device).bfloat16()
             img_out = net(img_in)
             # print(img_name)
 
@@ -68,11 +67,7 @@ def generateRough(net, DIR_FROM, DIR_EVAL):
 
             im = Image.open(img_out_filename).convert("L")
 
-            im_output = im.filter(ImageFilter.GaussianBlur(2))
-            enhancer = ImageEnhance.Contrast(im_output)
-
-            factor = 2
-            im_output = enhancer.enhance(factor)
+            im_output = im.filter(ImageFilter.GaussianBlur(0.9))
             im_output.save(img_out_filename)
 
     print("Done!")
@@ -85,14 +80,15 @@ def generateRoughSingle(net, DIR_FROM, DIR_EVAL):
 
     data_test = TestDataset(DIR_FROM, True)
     # print(batch_size)
-    testloader = DataLoader(data_test, batch_size=1, shuffle=False)
+    testloader = DataLoader(data_test, batch_size=1, shuffle=False, num_workers=5, persistent_workers=True,
+                            pin_memory=True)
 
     print("\nProcessing roughness files...")
 
     net.eval()
     with torch.no_grad():
         for idx, data in enumerate(testloader):
-            img_in = data[0].to(device)
+            img_in = data[0].to(device).bfloat16()
             img_out = net(img_in)
             # print(img_name)
 
@@ -104,22 +100,19 @@ def generateRoughSingle(net, DIR_FROM, DIR_EVAL):
 
             factor = 1.1
             im_output = enhancer.enhance(factor)
-            im_output = im_output.filter(ImageFilter.GaussianBlur(1))
+            im_output = im_output.filter(ImageFilter.GaussianBlur(0.9))
             im_output.save(img_out_filename)
 
     print("Done!")
 
 
 if __name__ == "__main__":
-    from model import OLDPBR
+    from model import load_net
 
     # Define the model
-    model = OLDPBR(64, 1).cuda().half()
+    model = load_net("./checkpoints/Roughness/last.pth")
+    model.cuda()
 
-    # Load the trained model weights
-    model.load_state_dict(torch.load('./checkpoints/Roughness/latest_net_G.pth'))
-
-    # Set the model to evaluation mode (e.g., for batch normalization and dropout)
     model.eval()
 
     generateRough(model, "./textures", "./out")

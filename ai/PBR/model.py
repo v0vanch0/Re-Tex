@@ -1,80 +1,346 @@
+from collections import OrderedDict
+
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
+from pathlib import Path
+
+import os
+from collections import OrderedDict
+import torch
+from torch import nn as nn
+import torch.nn.functional as F
+from copy import deepcopy
+from os import path as osp
 
 
-class OLDPBR(nn.Module):
-    def __init__(self, d=64, ch=3):
-        super(OLDPBR, self).__init__()
-        self.conv1 = nn.Conv2d(ch, d, 4, 2, 1)
-        self.conv2 = nn.Conv2d(d, d * 2, 4, 2, 1)
-        self.conv2_bn = nn.BatchNorm2d(d * 2)
-        self.conv3 = nn.Conv2d(d * 2, d * 4, 4, 2, 1)
-        self.conv3_bn = nn.BatchNorm2d(d * 4)
-        self.conv4 = nn.Conv2d(d * 4, d * 8, 4, 2, 1)
-        self.conv4_bn = nn.BatchNorm2d(d * 8)
-        self.conv5 = nn.Conv2d(d * 8, d * 8, 4, 2, 1)
-        self.conv5_bn = nn.BatchNorm2d(d * 8)
-        self.conv6 = nn.Conv2d(d * 8, d * 8, 4, 2, 1)
-        self.conv6_bn = nn.BatchNorm2d(d * 8)
-        self.conv7 = nn.Conv2d(d * 8, d * 8, 4, 2, 1)
-        self.conv7_bn = nn.BatchNorm2d(d * 8)
-        self.conv8 = nn.Conv2d(d * 8, d * 8, 4, 2, 1)
+def scandir(dir_path, suffix=None, recursive=False, full_path=False):
+    """Scan a directory to find the interested files.
 
-        self.deconv1 = nn.ConvTranspose2d(d * 8, d * 8, 4, 2, 1)
-        self.deconv1_bn = nn.BatchNorm2d(d * 8)
-        self.deconv2 = nn.ConvTranspose2d(d * 8 * 2, d * 8, 4, 2, 1)
-        self.deconv2_bn = nn.BatchNorm2d(d * 8)
-        self.deconv3 = nn.ConvTranspose2d(d * 8 * 2, d * 8, 4, 2, 1)
-        self.deconv3_bn = nn.BatchNorm2d(d * 8)
-        self.deconv4 = nn.ConvTranspose2d(d * 8 * 2, d * 8, 4, 2, 1)
-        self.deconv4_bn = nn.BatchNorm2d(d * 8)
-        self.deconv5 = nn.ConvTranspose2d(d * 8 * 2, d * 4, 4, 2, 1)
-        self.deconv5_bn = nn.BatchNorm2d(d * 4)
-        self.deconv6 = nn.ConvTranspose2d(d * 4 * 2, d * 2, 4, 2, 1)
-        self.deconv6_bn = nn.BatchNorm2d(d * 2)
-        self.deconv7 = nn.ConvTranspose2d(d * 2 * 2, d, 4, 2, 1)
-        self.deconv7_bn = nn.BatchNorm2d(d)
-        self.deconv8 = nn.Sequential(
-            nn.ConvTranspose2d(d * 2, ch, 4, 2, 1),
-            nn.Tanh()
+    Args:
+        dir_path (str): Path of the directory.
+        suffix (str | tuple(str), optional): File suffix that we are
+            interested in. Default: None.
+        recursive (bool, optional): If set to True, recursively scan the
+            directory. Default: False.
+        full_path (bool, optional): If set to True, include the dir_path.
+            Default: False.
+
+    Returns:
+        A generator for all the interested files with relative paths.
+    """
+
+    if (suffix is not None) and not isinstance(suffix, (str, tuple)):
+        raise TypeError('"suffix" must be a string or tuple of strings')
+
+    root = dir_path
+
+    def _scandir(dir_path, suffix, recursive):
+        for entry in os.scandir(dir_path):
+            if not entry.name.startswith('.') and entry.is_file():
+                if full_path:
+                    return_path = entry.path
+                else:
+                    return_path = osp.relpath(entry.path, root)
+
+                if suffix is None:
+                    yield return_path
+                elif return_path.endswith(suffix):
+                    yield return_path
+            else:
+                if recursive:
+                    yield from _scandir(entry.path, suffix=suffix, recursive=recursive)
+                else:
+                    continue
+
+    return _scandir(dir_path, suffix=suffix, recursive=recursive)
+
+
+def _make_pair(value):
+    if isinstance(value, int):
+        value = (value,) * 2
+    return value
+
+
+def conv_layer(in_channels,
+               out_channels,
+               kernel_size,
+               bias=True):
+    """
+    Re-write convolution layer for adaptive `padding`.
+    """
+    kernel_size = _make_pair(kernel_size)
+    padding = (int((kernel_size[0] - 1) / 2),
+               int((kernel_size[1] - 1) / 2))
+    return nn.Conv2d(in_channels,
+                     out_channels,
+                     kernel_size,
+                     padding=padding,
+                     bias=bias)
+
+
+def activation(act_type, inplace=True, neg_slope=0.05, n_prelu=1):
+    """
+    Activation functions for ['relu', 'lrelu', 'prelu'].
+    Parameters
+    ----------
+    act_type: str
+        one of ['relu', 'lrelu', 'prelu'].
+    inplace: bool
+        whether to use inplace operator.
+    neg_slope: float
+        slope of negative region for `lrelu` or `prelu`.
+    n_prelu: int
+        `num_parameters` for `prelu`.
+    ----------
+    """
+    act_type = act_type.lower()
+    if act_type == 'relu':
+        layer = nn.ReLU(inplace)
+    elif act_type == 'lrelu':
+        layer = nn.LeakyReLU(neg_slope, inplace)
+    elif act_type == 'prelu':
+        layer = nn.PReLU(num_parameters=n_prelu, init=neg_slope)
+    else:
+        raise NotImplementedError(
+            'activation layer [{:s}] is not found'.format(act_type))
+    return layer
+
+
+def sequential(*args):
+    """
+    Modules will be added to the a Sequential Container in the order they
+    are passed.
+
+    Parameters
+    ----------
+    args: Definition of Modules in order.
+    -------
+    """
+    if len(args) == 1:
+        if isinstance(args[0], OrderedDict):
+            raise NotImplementedError(
+                'sequential does not support OrderedDict input.')
+        return args[0]
+    modules = []
+    for module in args:
+        if isinstance(module, nn.Sequential):
+            for submodule in module.children():
+                modules.append(submodule)
+        elif isinstance(module, nn.Module):
+            modules.append(module)
+    return nn.Sequential(*modules)
+
+
+def pixelshuffle_block(in_channels,
+                       out_channels,
+                       upscale_factor=2,
+                       kernel_size=3):
+    """
+    Upsample features according to `upscale_factor`.
+    """
+    conv = conv_layer(in_channels,
+                      out_channels * (upscale_factor ** 2),
+                      kernel_size)
+    pixel_shuffle = nn.PixelShuffle(upscale_factor)
+    return sequential(conv, pixel_shuffle)
+
+
+class Conv3XC(nn.Module):
+    def __init__(self, c_in, c_out, gain1=1, gain2=0, s=1, bias=True, relu=False):
+        super(Conv3XC, self).__init__()
+        self.weight_concat = None
+        self.bias_concat = None
+        self.update_params_flag = False
+        self.stride = s
+        self.has_relu = relu
+        gain = gain1
+        self.training = False
+
+        self.sk = nn.Conv2d(in_channels=c_in, out_channels=c_out, kernel_size=1, padding=0, stride=s, bias=bias)
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels=c_in, out_channels=c_in * gain, kernel_size=1, padding=0, bias=bias),
+            nn.Conv2d(in_channels=c_in * gain, out_channels=c_out * gain, kernel_size=3, stride=s, padding=0,
+                      bias=bias),
+            nn.Conv2d(in_channels=c_out * gain, out_channels=c_out, kernel_size=1, padding=0, bias=bias),
         )
 
-    def weight_init(self, mean, std):
-        for m in self._modules:
-            normal_init(self._modules[m], mean, std)
+        self.eval_conv = nn.Conv2d(in_channels=c_in, out_channels=c_out, kernel_size=3, padding=1, stride=s, bias=bias)
 
-    def forward(self, input):
-        e1 = self.conv1(input)
-        e2 = self.conv2_bn(self.conv2(F.leaky_relu(e1, 0.2)))
-        e3 = self.conv3_bn(self.conv3(F.leaky_relu(e2, 0.2)))
-        e4 = self.conv4_bn(self.conv4(F.leaky_relu(e3, 0.2)))
-        e5 = self.conv5_bn(self.conv5(F.leaky_relu(e4, 0.2)))
-        e6 = self.conv6_bn(self.conv6(F.leaky_relu(e5, 0.2)))
-        e7 = self.conv7_bn(self.conv7(F.leaky_relu(e6, 0.2)))
-        e8 = self.conv8(F.leaky_relu(e7, 0.2))
+        if self.training is False:
+            self.eval_conv.weight.requires_grad = False
+            self.eval_conv.bias.requires_grad = False
+            self.update_params()
 
-        d1 = F.dropout(self.deconv1_bn(self.deconv1(F.relu(e8))), 0.5, training=True)
-        d1 = torch.cat([d1, e7], 1)
-        d2 = F.dropout(self.deconv2_bn(self.deconv2(F.relu(d1))), 0.5, training=True)
-        d2 = torch.cat([d2, e6], 1)
-        d3 = F.dropout(self.deconv3_bn(self.deconv3(F.relu(d2))), 0.5, training=True)
-        d3 = torch.cat([d3, e5], 1)
-        d4 = self.deconv4_bn(self.deconv4(F.relu(d3)))
+    def update_params(self):
+        w1 = self.conv[0].weight.data.clone().detach()
+        b1 = self.conv[0].bias.data.clone().detach()
+        w2 = self.conv[1].weight.data.clone().detach()
+        b2 = self.conv[1].bias.data.clone().detach()
+        w3 = self.conv[2].weight.data.clone().detach()
+        b3 = self.conv[2].bias.data.clone().detach()
 
-        d4 = torch.cat([d4, e4], 1)
-        d5 = self.deconv5_bn(self.deconv5(F.relu(d4)))
-        d5 = torch.cat([d5, e3], 1)
-        d6 = self.deconv6_bn(self.deconv6(F.relu(d5)))
-        d6 = torch.cat([d6, e2], 1)
-        d7 = self.deconv7_bn(self.deconv7(F.relu(d6)))
-        d7 = torch.cat([d7, e1], 1)
-        d8 = self.deconv8(F.relu(d7))
+        w = F.conv2d(w1.flip(2, 3).permute(1, 0, 2, 3), w2, padding=2, stride=1).flip(2, 3).permute(1, 0, 2, 3)
+        b = (w2 * b1.reshape(1, -1, 1, 1)).sum((1, 2, 3)) + b2
 
-        return d8
+        self.weight_concat = F.conv2d(w.flip(2, 3).permute(1, 0, 2, 3), w3, padding=0, stride=1).flip(2, 3).permute(1,
+                                                                                                                    0,
+                                                                                                                    2,
+                                                                                                                    3)
+        self.bias_concat = (w3 * b.reshape(1, -1, 1, 1)).sum((1, 2, 3)) + b3
+
+        sk_w = self.sk.weight.data.clone().detach()
+        sk_b = self.sk.bias.data.clone().detach()
+        target_kernel_size = 3
+
+        H_pixels_to_pad = (target_kernel_size - 1) // 2
+        W_pixels_to_pad = (target_kernel_size - 1) // 2
+        sk_w = F.pad(sk_w, [H_pixels_to_pad, H_pixels_to_pad, W_pixels_to_pad, W_pixels_to_pad])
+
+        self.weight_concat = self.weight_concat + sk_w
+        self.bias_concat = self.bias_concat + sk_b
+
+        self.eval_conv.weight.data = self.weight_concat
+        self.eval_conv.bias.data = self.bias_concat
+
+    def forward(self, x):
+        if self.training:
+            pad = 1
+            x_pad = F.pad(x, (pad, pad, pad, pad), "constant", 0)
+            out = self.conv(x_pad) + self.sk(x)
+        else:
+            self.update_params()
+            out = self.eval_conv(x)
+
+        if self.has_relu:
+            out = F.leaky_relu(out, negative_slope=0.05)
+        return out
 
 
-def normal_init(m, mean, std):
-    if isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Conv2d):
-        m.weight.data.normal_(mean, std)
-        m.bias.data.zero_()
+class SPAB(nn.Module):
+    def __init__(self,
+                 in_channels,
+                 mid_channels=None,
+                 out_channels=None,
+                 bias=False):
+        super(SPAB, self).__init__()
+        if mid_channels is None:
+            mid_channels = in_channels
+        if out_channels is None:
+            out_channels = in_channels
+
+        self.in_channels = in_channels
+        self.c1_r = Conv3XC(in_channels, mid_channels, gain1=2, s=1)
+        self.c2_r = Conv3XC(mid_channels, mid_channels, gain1=2, s=1)
+        self.c3_r = Conv3XC(mid_channels, out_channels, gain1=2, s=1)
+        self.act1 = torch.nn.SiLU(inplace=True)
+        self.act2 = activation('lrelu', neg_slope=0.1, inplace=True)
+
+    def forward(self, x):
+        out1 = (self.c1_r(x))
+        out1_act = self.act1(out1)
+
+        out2 = (self.c2_r(out1_act))
+        out2_act = self.act1(out2)
+
+        out3 = (self.c3_r(out2_act))
+
+        sim_att = torch.sigmoid(out3) - 0.5
+        out = (out3 + x) * sim_att
+
+        return out, out1, sim_att
+
+
+class span(nn.Module):
+    """
+    Swift Parameter-free Attention Network for Efficient Super-Resolution
+    """
+
+    def __init__(self,
+                 num_in_ch=3,
+                 num_out_ch=3,
+                 feature_channels=48,
+                 upscale=1,
+                 bias=True,
+                 norm=True,
+                 img_range=1.0,
+                 rgb_mean=(0.4488, 0.4371, 0.4040)
+                 ):
+        super(span, self).__init__()
+
+        in_channels = num_in_ch
+        out_channels = num_out_ch
+        self.img_range = img_range
+        self.mean = torch.Tensor(rgb_mean).view(1, 3, 1, 1)
+
+        self.no_norm: torch.Tensor | None
+        if not norm:
+            self.register_buffer("no_norm", torch.zeros(1))
+        else:
+            self.no_norm = None
+
+        self.conv_1 = Conv3XC(in_channels, feature_channels, gain1=2, s=1)
+        self.block_1 = SPAB(feature_channels, bias=bias)
+        self.block_2 = SPAB(feature_channels, bias=bias)
+        self.block_3 = SPAB(feature_channels, bias=bias)
+        self.block_4 = SPAB(feature_channels, bias=bias)
+        self.block_5 = SPAB(feature_channels, bias=bias)
+        self.block_6 = SPAB(feature_channels, bias=bias)
+
+        self.conv_cat = conv_layer(feature_channels * 4, feature_channels, kernel_size=1, bias=True)
+        self.conv_2 = Conv3XC(feature_channels, feature_channels, gain1=2, s=1)
+
+        self.upsampler = pixelshuffle_block(feature_channels, out_channels, upscale_factor=upscale)
+
+    @property
+    def is_norm(self):
+        return self.no_norm is None
+
+    def forward(self, x):
+        if self.is_norm:
+            self.mean = self.mean.type_as(x)
+            x = (x - self.mean) * self.img_range
+
+        out_feature = self.conv_1(x)
+
+        out_b1, _, att1 = self.block_1(out_feature)
+        out_b2, _, att2 = self.block_2(out_b1)
+        out_b3, _, att3 = self.block_3(out_b2)
+
+        out_b4, _, att4 = self.block_4(out_b3)
+        out_b5, _, att5 = self.block_5(out_b4)
+        out_b6, out_b5_2, att6 = self.block_6(out_b5)
+
+        out_b6 = self.conv_2(out_b6)
+        out = self.conv_cat(torch.cat([out_feature, out_b6, out_b1, out_b5_2], 1))
+        output = self.upsampler(out)
+
+        return output
+
+
+def load_net(path):
+    net = span()
+    load_net = torch.load(path, map_location=torch.device("cuda"))
+    try:
+        if "params-ema" in load_net:
+            param_key = "params-ema"
+        elif "params" in load_net:
+            param_key = "params"
+        elif "params_ema" in load_net:
+            param_key = "params_ema"
+        load_net = load_net[param_key]
+    except:
+        pass
+
+    # remove unnecessary 'module.'
+    for k, v in deepcopy(load_net).items():
+        if k.startswith("module."):
+            load_net[k[7:]] = v
+            load_net.pop(k)
+
+    # load_network and send to device
+    torch.cuda.empty_cache()
+
+    return net
+
+

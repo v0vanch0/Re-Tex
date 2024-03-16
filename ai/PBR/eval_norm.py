@@ -19,7 +19,7 @@ transform = transforms.Compose([
     transforms.Resize(CROP),
     transforms.CenterCrop(CROP),
     transforms.ToTensor(),
-    transforms.Normalize(0.45, 0.5)
+    transforms.Normalize(0.5, 0.5)
     # outputs range from -1 to 1
 ])
 
@@ -27,7 +27,7 @@ transformDoNotResize = transforms.Compose([
     # transforms.Resize(CROP),
     # transforms.CenterCrop(CROP),
     transforms.ToTensor(),
-    transforms.Normalize(0.45, 0.5)
+    transforms.Normalize(0.5, 0.5)
     # outputs range from -1 to 1
 ])
 
@@ -64,14 +64,15 @@ def generateNorm(net, DIR_FROM, DIR_EVAL):
 
     data_test = TestDataset(DIR_FROM)
     # print(batch_size)
-    testloader = DataLoader(data_test, batch_size=1, shuffle=False)
+    testloader = DataLoader(data_test, batch_size=1, shuffle=False,
+                            pin_memory=True)
 
     print("\nProcessing normal files...")
 
     net.eval()
     with torch.no_grad():
         for idx, data in enumerate(testloader):
-            img_in = data[0].to(device).half()
+            img_in = data[0].to(device).bfloat16()
             img_out = net(img_in)
             # print(img_name)
 
@@ -93,14 +94,15 @@ def generateNormSingle(net, DIR_FROM, DIR_EVAL):
 
     data_test = TestDataset(DIR_FROM, True)
     # print(batch_size)
-    testloader = DataLoader(data_test, batch_size=1, shuffle=False)
+    testloader = DataLoader(data_test, batch_size=1, shuffle=False,
+                            pin_memory=True)
 
     print("\nOutput disp files...")
 
     net.eval()
     with torch.no_grad():
         for idx, data in enumerate(testloader):
-            img_in = data[0].to(device)
+            img_in = data[0].to(device).bfloat16()
             img_out = net(img_in)
             # print(img_name)
 
@@ -113,7 +115,7 @@ def generateNormSingle(net, DIR_FROM, DIR_EVAL):
 if __name__ == "__main__":
     from model import OLDPBR
 
-    norm_net = OLDPBR().to(device).half()
+    norm_net = OLDPBR().to(device)
     checkpoint = torch.load(PATH_CHK)
     norm_net.load_state_dict(checkpoint)
 

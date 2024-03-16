@@ -1,10 +1,7 @@
-import os
-import sys
 import load as loader
 import upscale as upscaler
 import pbr as materializer
 import write as writer
-import config
 from tqdm import tqdm
 import pathlib
 from zipfile import ZipFile
@@ -17,15 +14,11 @@ from generation.normals import *
 from generation.metalness import *
 from generation.roughness import *
 
-from ai.PBR.model import OLDPBR
+from ai.PBR.model import load_net
 import ai.PBR.eval_disp as displacements
 import ai.PBR.eval_norm as normals
 import ai.PBR.eval_rough as roughness
-import ai.PBR.eval_unbake as unbakes
 from nvidia.octahedral import LightspeedOctahedralConverter
-
-sys.path.append('./nvidia')
-from octahedral import *
 import clipboard
 from PIL import Image, ImageEnhance
 
@@ -55,7 +48,7 @@ def update_config(upscaler):
     f.close()
     data = data.split("\n")
 
-    data[1] = f'upscale_model = "{upscaler}"';
+    data[1] = f'upscale_model = "{upscaler}"'
 
     f = open("config.py", "w")
     f.write("\n".join(data))
@@ -64,7 +57,7 @@ def update_config(upscaler):
 
 def get_upscale_models():
     ESRGAN = os.listdir("models/ESRGAN/")
-    array_models = [];
+    array_models = []
 
     for x in range(len(ESRGAN)):
         temp = ESRGAN[x]
@@ -234,13 +227,7 @@ def ai_normal_single(texture):
     torch.cuda.empty_cache()
     gc.collect()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    PATH_CHK = "ai/PBR/checkpoints/norm/norm_net_last.pth"
-
-    norm_net = OLDPBR().to(device)
-    checkpoint = torch.load(PATH_CHK)
-    norm_net.load_state_dict(checkpoint["model"])
-
+    norm_net = load_net("ai/PBR/checkpoints/Normal/last.pth").cuda().bfloat16()
     normals.generateNormSingle(norm_net, path, "textures/processing/normaldx")
     LightspeedOctahedralConverter.convert_dx_file_to_octahedral(f"textures/processing/normaldx/{texture}_normal.png",
                                                                 f"textures/processing/normals/{texture}_normal.png")
@@ -251,32 +238,6 @@ def ai_normal_single(texture):
         print(e)
 
     return "Normal map is done!"
-
-
-def ai_unbake_single(texture):
-    textureUnbaked = os.path.exists(f"textures/processing/baked/{texture}.png")
-    isExist = os.path.exists("textures/processing/baked")
-    if not isExist:
-        os.makedirs("textures/processing/baked")
-
-    if (not textureUnbaked):
-        shutil.move(f"textures/processing/diffuse/{texture}.png", f"textures/processing/baked/{texture}.png")
-
-    import gc
-    import torch
-    torch.cuda.empty_cache()
-    gc.collect()
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    PATH_CHK = "ai/PBR/checkpoints/unbake/unbake_net_last.pth"
-
-    norm_net = OLDPBR().to(device)
-    checkpoint = torch.load(PATH_CHK)
-    norm_net.load_state_dict(checkpoint["model"])
-
-    unbakes.generateUnbakeSingle(norm_net, f"textures/processing/baked/{texture}.png", "textures/processing/diffuse")
-
-    return "Unbaking is done!"
 
 
 def ai_roughness_single(texture):
@@ -290,12 +251,7 @@ def ai_roughness_single(texture):
     torch.cuda.empty_cache()
     gc.collect()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    PATH_CHK = "ai/PBR/checkpoints/Roughness/latest_net_G.pth"
-
-    norm_net = OLDPBR().to(device)
-    checkpoint = torch.load(PATH_CHK)
-    norm_net.load_state_dict(checkpoint)
+    norm_net = load_net("ai/PBR/checkpoints/Roughness/last.pth").cuda().bfloat16()
 
     roughness.generateRoughSingle(norm_net, path, "textures/processing/roughness")
     return "Roughness map is done!"
@@ -309,12 +265,7 @@ def ai_parallax_single(texture):
     torch.cuda.empty_cache()
     gc.collect()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    PATH_CHK = "ai/PBR/checkpoints/Displacement/latest_net_G.pth"
-
-    norm_net = OLDPBR().to(device)
-    checkpoint = torch.load(PATH_CHK)
-    norm_net.load_state_dict(checkpoint)
+    norm_net = load_net("ai/PBR/checkpoints/Displacement/last.pth").cuda().bfloat16()
 
     displacements.generateDispSingle(norm_net, path, "textures/processing/displacements")
     return "Displacement map is done!"
@@ -465,14 +416,8 @@ def generate_pbr_ai():
     torch.cuda.empty_cache()
     gc.collect()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    PATH_CHK = "ai/PBR/checkpoints/Normal/latest_net_G.pth"
-
-    norm_net = OLDPBR().to(device).half()
-    checkpoint = torch.load(PATH_CHK)
-    norm_net.load_state_dict(checkpoint)
-
-    normals.generateNorm(norm_net, "textures/processing/diffuse", "textures/processing/normaldx")
+    norm_net = load_net("ai/PBR/checkpoints/Normal/last.pth").cuda().bfloat16()
+    normals.generateNorm(norm_net, "textures/processing/upscaled", "textures/processing/normaldx")
     for x in tqdm(os.listdir(f"textures/processing/normaldx/"), desc="Generating..."):
         if x.endswith(".png"):
             LightspeedOctahedralConverter.convert_dx_file_to_octahedral(f"textures/processing/normaldx/{x}",
@@ -481,22 +426,13 @@ def generate_pbr_ai():
     torch.cuda.empty_cache()
     gc.collect()
 
-    PATH_CHK = "ai/PBR/checkpoints/Roughness/latest_net_G.pth"
-
-    norm_net = OLDPBR().to(device).half()
-    checkpoint = torch.load(PATH_CHK)
-    norm_net.load_state_dict(checkpoint)
+    norm_net = load_net("ai/PBR/checkpoints/Roughness/last.pth").cuda().bfloat16()
 
     roughness.generateRough(norm_net, "textures/processing/diffuse", "textures/processing/roughness")
     torch.cuda.empty_cache()
     gc.collect()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    PATH_CHK = "ai/PBR/checkpoints/Displacement/latest_net_G.pth"
-
-    norm_net = OLDPBR(64,1).to(device).half()
-    checkpoint = torch.load(PATH_CHK)
-    norm_net.load_state_dict(checkpoint)
+    norm_net = load_net("ai/PBR/checkpoints/Displacement/last.pth").cuda().bfloat16()
 
     displacements.generateDisp(norm_net, "textures/processing/diffuse", "textures/processing/displacements")
 
