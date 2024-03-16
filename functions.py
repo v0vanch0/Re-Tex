@@ -417,7 +417,7 @@ def generate_pbr_ai():
     gc.collect()
 
     norm_net = load_net("ai/PBR/checkpoints/Normal/last.pth").cuda().bfloat16()
-    normals.generateNorm(norm_net, "textures/processing/upscaled", "textures/processing/normaldx")
+    normals.generateNorm(norm_net, "textures/processing/diffuse", "textures/processing/normaldx")
     for x in tqdm(os.listdir(f"textures/processing/normaldx/"), desc="Generating..."):
         if x.endswith(".png"):
             LightspeedOctahedralConverter.convert_dx_file_to_octahedral(f"textures/processing/normaldx/{x}",
