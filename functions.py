@@ -227,8 +227,10 @@ def ai_normal_single(texture):
     torch.cuda.empty_cache()
     gc.collect()
 
-    norm_net = load_net("ai/PBR/checkpoints/Normal/last.pth").cuda().bfloat16()
-    normals.generateNormSingle(norm_net, path, "textures/processing/normaldx")
+    model = span()
+    model.load_state_dict(torch.load("ai/PBR/checkpoints/Normal/last.pth"), strict=False)
+    model.cuda().bfloat16().eval()
+    normals.generateNormSingle(model, path, "textures/processing/normaldx")
     LightspeedOctahedralConverter.convert_dx_file_to_octahedral(f"textures/processing/normaldx/{texture}_normal.png",
                                                                 f"textures/processing/normals/{texture}_normal.png")
 
@@ -250,10 +252,11 @@ def ai_roughness_single(texture):
     import torch
     torch.cuda.empty_cache()
     gc.collect()
+    model = span()
+    model.load_state_dict(torch.load("ai/PBR/checkpoints/Roughness/last.pth"), strict=False)
+    model.cuda().bfloat16().eval()
 
-    norm_net = load_net("ai/PBR/checkpoints/Roughness/last.pth").cuda().bfloat16()
-
-    roughness.generateRoughSingle(norm_net, path, "textures/processing/roughness")
+    roughness.generateRoughSingle(model, path, "textures/processing/roughness")
     return "Roughness map is done!"
 
 
@@ -265,9 +268,11 @@ def ai_parallax_single(texture):
     torch.cuda.empty_cache()
     gc.collect()
 
-    norm_net = load_net("ai/PBR/checkpoints/Displacement/last.pth").cuda().bfloat16()
+    model = span()
+    model.load_state_dict(torch.load("ai/PBR/checkpoints/Displacement/last.pth"), strict=False)
+    model.cuda().bfloat16().eval()
 
-    displacements.generateDispSingle(norm_net, path, "textures/processing/displacements")
+    displacements.generateDispSingle(model, path, "textures/processing/displacements")
     return "Displacement map is done!"
 
 
