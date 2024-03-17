@@ -416,7 +416,8 @@ def generate_pbr_ai():
     torch.cuda.empty_cache()
     gc.collect()
     model = span()
-    model.load_state_dict(torch.load("ai/PBR/checkpoints/Normal/last.pth"), strict=False).cuda().bfloat16().eval()
+    model.load_state_dict(torch.load("ai/PBR/checkpoints/Normal/last.pth"), strict=False)
+    model.cuda().bfloat16().eval()
     normals.generateNorm(model, "textures/processing/diffuse", "textures/processing/normaldx")
     for x in tqdm(os.listdir(f"textures/processing/normaldx/"), desc="Generating..."):
         if x.endswith(".png"):
@@ -426,15 +427,16 @@ def generate_pbr_ai():
     torch.cuda.empty_cache()
     gc.collect()
     model = span()
-    model.load_state_dict(torch.load("ai/PBR/checkpoints/Roughness/last.pth"), strict=False).cuda().bfloat16().eval()
-
+    model.load_state_dict(torch.load("ai/PBR/checkpoints/Roughness/last.pth"), strict=False)
+    model.cuda().bfloat16().eval()
     roughness.generateRough(model, "textures/processing/diffuse", "textures/processing/roughness")
     torch.cuda.empty_cache()
     gc.collect()
 
     model = span()
-    model.load_state_dict(torch.load("ai/PBR/checkpoints/Displacement/last.pth"), strict=False).cuda().bfloat16().eval()
-
+    model.load_state_dict(torch.load("ai/PBR/checkpoints/Displacement/last.pth"), strict=False)
+    model.cuda().bfloat16().eval()
     displacements.generateDisp(model, "textures/processing/diffuse", "textures/processing/displacements")
 
     return "Global AI PBR generation is done!"
+generate_pbr_ai()
