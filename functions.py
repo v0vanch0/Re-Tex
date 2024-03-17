@@ -444,4 +444,3 @@ def generate_pbr_ai():
     displacements.generateDisp(model, "textures/processing/diffuse", "textures/processing/displacements")
 
     return "Global AI PBR generation is done!"
-generate_pbr_ai()
