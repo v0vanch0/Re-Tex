@@ -52,7 +52,7 @@ over "RootNode"
 }
 """
 
-example_mat = '{"over Shader": {"asset inputs:diffuse_texture": "@./SubUSDs/textures/diffuse/A8D6F2699C10C084.dds@", "custom_inputs:diffuse_texture": {"customData": {"asset default": "@@"}, "displayGroup": "Diffuse", "displayName": "Albedo Map", "doc": "The texture specifying the albedo value and the optional opacity value to use in the alpha channel", "hidden": "false"}, "asset inputs:reflectionroughness_texture": "@./SubUSDs/textures/roughness/A8D6F2699C10C084.dds@", "custom_inputs:reflectionroughness_texture": {"colorSpace": "auto", "customData": {"asset default": "@@"}, "displayGroup": "Specular", "displayName": "Roughness Map", "hidden": "false"}, "asset inputs:normalmap_texture": "@./SubUSDs/textures/normals/A8D6F2699C10C084.dds@", "custom_inputs:normalmap_texture": {"colorSpace": "auto", "customData": {"asset default": "@@"}, "displayGroup": "Normal", "displayName": "Normal Map", "hidden": "false"}, "asset inputs:metallic_texture": "@./SubUSDs/textures/metallness/A8D6F2699C10C084.dds@", "custom_inputs:metallic_texture": {"colorSpace": "auto", "customData": {"asset default": "@@"}, "displayGroup": "Specular", "displayName": "Metallic Map", "hidden": "false"}, "asset inputs:height_texture": "@./SubUSDs/textures/displacements/A8D6F2699C10C084.dds@", "custom_inputs:height_texture": {"colorSpace": "auto", "customData": {"asset default": "@@"}, "displayGroup": "Displacement", "displayName": "Displacement Map", "hidden": "false"}, "float inputs:displace_in": "0.05", "float inputs:transmittance_measurement_distance": "1", "float inputs:reflection_roughness_constant": "1", "float inputs:ior_constant": "0", "float inputs:metallic_constant": "0", "float inputs:emissive_intensity": "0"}}'
+example_mat = '{"over Shader": {"asset inputs:diffuse_texture": "@./SubUSDs/textures/diffuse/A8D6F2699C10C084.dds@", "custom_inputs:diffuse_texture": {"customData": {"asset default": "@@"}, "displayGroup": "Diffuse", "displayName": "Albedo Map", "doc": "The texture specifying the albedo value and the optional opacity value to use in the alpha channel", "hidden": "false"}, "asset inputs:reflectionroughness_texture": "@./SubUSDs/textures/roughness/A8D6F2699C10C084.dds@", "custom_inputs:reflectionroughness_texture": {"colorSpace": "auto", "customData": {"asset default": "@@"}, "displayGroup": "Specular", "displayName": "Roughness Map", "hidden": "false"}, "asset inputs:normalmap_texture": "@./SubUSDs/textures/normals/A8D6F2699C10C084.dds@", "custom_inputs:normalmap_texture": {"colorSpace": "auto", "customData": {"asset default": "@@"}, "displayGroup": "Normal", "displayName": "Normal Map", "hidden": "false"}, "asset inputs:height_texture": "@./SubUSDs/textures/displacements/A8D6F2699C10C084.dds@", "custom_inputs:height_texture": {"colorSpace": "auto", "customData": {"asset default": "@@"}, "displayGroup": "Displacement", "displayName": "Displacement Map", "hidden": "false"}, "float inputs:displace_in": "0.05", "float inputs:transmittance_measurement_distance": "1", "float inputs:reflection_roughness_constant": "1", "float inputs:ior_constant": "0", "float inputs:metallic_constant": "0", "float inputs:emissive_intensity": "0"}}'
 mod = ""
 RootNode_Looks = {}
 mat_names = {}
@@ -107,20 +107,6 @@ def saveAllTextures(mod_dir, replacements_file):
                     f = open("logs", "a")
                     f.write("\n" + str(e))
                     f.close()
-
-            try:
-                already = hasherObj.saved(f"textures/processing/metallness/{x.replace('.png', '')}_metal.png")
-                if (not already):
-                    with image.Image(
-                            filename=f"textures/processing/metallness/{x.replace('.png', '')}_metal.png") as img:
-                        img.compression = "dxt5"
-                        img.save(
-                            filename=f"{config.rtx_remix_dir}/mods/{mod_dir}/SubUSDs/textures/metallness/{x.replace('png', 'dds')}")
-                        hasherObj.add_saved(f"textures/processing/metallness/{x.replace('.png', '')}_metal.png")
-            except Exception as e:
-                f = open("logs", "a")
-                f.write("\n" + str(e))
-                f.close()
 
             try:
                 already = hasherObj.saved(f"textures/processing/normals/{x.replace('.png', '')}_normal.png")
@@ -190,8 +176,6 @@ emissive_intensity = 0"""
                 "asset inputs:reflectionroughness_texture"] = f"@./SubUSDs/textures/roughness/{mat_selected_name}.dds@"
             mat_to_edit["over Shader"][
                 "asset inputs:normalmap_texture"] = f"@./SubUSDs/textures/normals/{mat_selected_name}.dds@"
-            mat_to_edit["over Shader"][
-                "asset inputs:metallic_texture"] = f"@./SubUSDs/textures/metallness/{mat_selected_name}.dds@"
             mat_to_edit["over Shader"][
                 "asset inputs:height_texture"] = f"@./SubUSDs/textures/displacements/{mat_selected_name}.dds@"
 
