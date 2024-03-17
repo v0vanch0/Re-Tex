@@ -1,9 +1,8 @@
-import os
 from tqdm import tqdm
-import config
+from wand import image
+
 from hash.hasher import *
 from mods.controller import *
-from wand import image
 from usda import usda
 
 replacements = """#usda 1.0
@@ -125,7 +124,7 @@ def saveAllTextures(mod_dir, replacements_file):
 
             try:
                 already = hasherObj.saved(f"textures/processing/normals/{x.replace('.png', '')}_normal.png")
-                if (not already):
+                if not already:
                     with image.Image(filename=f"textures/processing/normals/{x.replace('.png', '')}_normal.png") as img:
                         img.compression = "dxt5"
                         img.save(
@@ -138,7 +137,7 @@ def saveAllTextures(mod_dir, replacements_file):
 
             try:
                 already = hasherObj.saved(f"textures/processing/roughness/{x.replace('.png', '')}_rough.png")
-                if (not already):
+                if not already:
                     with image.Image(
                             filename=f"textures/processing/roughness/{x.replace('.png', '')}_rough.png") as img:
                         img.compression = "dxt5"
@@ -179,8 +178,7 @@ ior_constant = 0
 metallic_constant = 0
 emissive_intensity = 0"""
 
-
-            if (f"over mat_{mat_selected_name}" not in mat_names):
+            if f"over mat_{mat_selected_name}" not in mat_names:
                 mat_to_edit = json.loads(example_mat)
                 mat_names.append(f"over mat_{mat_selected_name}")
             else:
@@ -198,18 +196,18 @@ emissive_intensity = 0"""
                 "asset inputs:height_texture"] = f"@./SubUSDs/textures/displacements/{mat_selected_name}.dds@"
 
             temp_ref = {}
-            if (material_properties[0] == "@glass"):
-                if (f"custom_over mat_{mat_selected_name}" not in mat_names):
+            if material_properties[0] == "@glass":
+                if f"custom_over mat_{mat_selected_name}" not in mat_names:
                     temp_ref[
                         "references"] = "@./SubUSDs/AperturePBR_Translucent.usda@</Looks/mat_AperturePBR_Translucent>"
-                    if (RootNode_Looks.get(f"parameters_over mat_{mat_selected_name}") != None):
+                    if RootNode_Looks.get(f"parameters_over mat_{mat_selected_name}") != None:
                         RootNode_Looks.pop(f"parameters_over mat_{mat_selected_name}")
 
                 mat_to_edit["over Shader"]["uniform asset info:mdl:sourceAsset"] = "@AperturePBR_Translucent.mdl@"
-            elif (material_properties[0] == "@emissive"):
-                if (f"custom_over mat_{mat_selected_name}" in mat_names):
+            elif material_properties[0] == "@emissive":
+                if f"custom_over mat_{mat_selected_name}" in mat_names:
                     RootNode_Looks.pop(f"custom_over mat_{mat_selected_name}")
-                if ("uniform asset info:mdl:sourceAsset" in mat_to_edit["over Shader"]):
+                if "uniform asset info:mdl:sourceAsset" in mat_to_edit["over Shader"]:
                     RootNode_Looks["over Shader"].pop("uniform asset info:mdl:sourceAsset")
 
                 RootNode_Looks[f"parameters_over mat_{mat_selected_name}"] = temp_ref
@@ -217,9 +215,9 @@ emissive_intensity = 0"""
                     "asset inputs:emissive_mask_texture"] = f"@./SubUSDs/textures/diffuse/{mat_selected_name}.dds@"
                 mat_to_edit["over Shader"]["bool inputs:enable_emission"] = 1
             else:
-                if (f"custom_over mat_{mat_selected_name}" in mat_names):
+                if f"custom_over mat_{mat_selected_name}" in mat_names:
                     RootNode_Looks.pop(f"custom_over mat_{mat_selected_name}")
-                if ("uniform asset info:mdl:sourceAsset" in mat_to_edit["over Shader"]):
+                if "uniform asset info:mdl:sourceAsset" in mat_to_edit["over Shader"]:
                     RootNode_Looks["over Shader"].pop("uniform asset info:mdl:sourceAsset")
 
                 mat_to_edit["over Shader"]["bool inputs:enable_emission"] = 0
@@ -227,9 +225,9 @@ emissive_intensity = 0"""
             for y in range(1, len(material_properties)):
                 temp_var_data = material_properties[y].replace(" ", "").split("=")
                 var_name = temp_var_data[0]
-                var_value = temp_var_data[1]
-                mat_to_edit["over Shader"][f"float inputs:{var_name}"] = var_value
-
+                if len(temp_var_data) > 1:
+                    var_value = temp_var_data[1]
+                    mat_to_edit["over Shader"][f"float inputs:{var_name}"] = var_value
             RootNode_Looks[f"over mat_{mat_selected_name}"] = mat_to_edit
 
     RootNode_Looks = RootNode_Looks
