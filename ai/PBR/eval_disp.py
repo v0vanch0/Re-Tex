@@ -22,16 +22,14 @@ CROP = 1024
 transform = transforms.Compose([
     transforms.Resize(CROP),
     transforms.CenterCrop(CROP),
-    transforms.ToTensor(),
-    transforms.Normalize(0.5, 0.5)
+    transforms.ToTensor()
     # outputs range from -1 to 1
 ])
 
 transformDoNotResize = transforms.Compose([
-    # transforms.Resize(CROP),
-    # transforms.CenterCrop(CROP),
-    transforms.ToTensor(),
-    transforms.Normalize(0.5, 0.5)
+    transforms.Resize(CROP),
+    transforms.CenterCrop(CROP),
+    transforms.ToTensor()
     # outputs range from -1 to 1
 ])
 
@@ -119,14 +117,11 @@ def generateDispSingle(net, DIR_FROM, DIR_EVAL):
 
 
 if __name__ == "__main__":
-    from model import OLDPBR
+    from model import span
 
-    # Define the model
-    model = OLDPBR(3, 1).cuda()
-
-    # Load the trained model weights
-    model.load_state_dict(torch.load('./checkpoints/Displacement/latest_net_G.pth'))
-
+    model = span()
+    model.load_state_dict(torch.load("./checkpoints/Displacement/last.pth"), strict=False)
+    model.cuda().bfloat16()
     # Set the model to evaluation mode (e.g., for batch normalization and dropout)
     model.eval()
 

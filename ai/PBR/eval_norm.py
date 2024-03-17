@@ -2,6 +2,7 @@ import glob
 import os
 
 import torch
+import torchvision
 from PIL import Image, ImageFilter, ImageEnhance
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
@@ -11,23 +12,21 @@ from torchvision.utils import save_image
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # %%
-PATH_CHK = "checkpoints/Normal/latest_net_G.pth"
+PATH_CHK = "checkpoints/Normal/last.pth"
 CROP = 1024
 
 # %%
 transform = transforms.Compose([
     transforms.Resize(CROP),
     transforms.CenterCrop(CROP),
-    transforms.ToTensor(),
-    transforms.Normalize(0.5, 0.5)
+    transforms.ToTensor()
     # outputs range from -1 to 1
 ])
 
 transformDoNotResize = transforms.Compose([
-    # transforms.Resize(CROP),
-    # transforms.CenterCrop(CROP),
-    transforms.ToTensor(),
-    transforms.Normalize(0.5, 0.5)
+    transforms.Resize(CROP),
+    transforms.CenterCrop(CROP),
+    transforms.ToTensor()
     # outputs range from -1 to 1
 ])
 
@@ -64,27 +63,22 @@ def generateNorm(net, DIR_FROM, DIR_EVAL):
 
     data_test = TestDataset(DIR_FROM)
     # print(batch_size)
-    testloader = DataLoader(data_test, batch_size=1, shuffle=False,
-                            pin_memory=True)
+    testloader = DataLoader(data_test, batch_size=1, shuffle=False)
 
     print("\nProcessing normal files...")
 
     net.eval()
     with torch.no_grad():
         for idx, data in enumerate(testloader):
-            img_in = data[0].to(device).bfloat16()
+            img_in = data[0].to(device)
             img_out = net(img_in)
             # print(img_name)
 
             img_out_filename = os.path.join(output_normal, f"{data[1][0]}_normal.png")
-            save_image(img_out, img_out_filename, value_range=(-1, 1), normalize=True)
-
-            im = Image.open(img_out_filename).convert("RGB")
-
-            im_output = im.filter(ImageFilter.GaussianBlur(1))
-            im_output.save(img_out_filename)
+            save_image(img_out, img_out_filename)
 
     print("Done!")
+
 
 
 def generateNormSingle(net, DIR_FROM, DIR_EVAL):
@@ -113,10 +107,13 @@ def generateNormSingle(net, DIR_FROM, DIR_EVAL):
 
 
 if __name__ == "__main__":
-    from model import OLDPBR
+    from model import span
 
-    norm_net = OLDPBR().to(device)
-    checkpoint = torch.load(PATH_CHK)
-    norm_net.load_state_dict(checkpoint)
+    # Define the model
+    model = span()
+    model.load_state_dict(torch.load("./checkpoints/Normal/last.pth"), strict=False)
+    model.cuda()
 
-    generateNorm(norm_net, "textures", "out")
+    model.eval()
+
+    generateNorm(model, "textures", "out")

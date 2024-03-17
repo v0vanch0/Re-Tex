@@ -14,7 +14,7 @@ from generation.normals import *
 from generation.metalness import *
 from generation.roughness import *
 
-from ai.PBR.model import load_net
+from ai.PBR.model import span
 import ai.PBR.eval_disp as displacements
 import ai.PBR.eval_norm as normals
 import ai.PBR.eval_rough as roughness
@@ -415,9 +415,9 @@ def generate_pbr_ai():
 
     torch.cuda.empty_cache()
     gc.collect()
-
-    norm_net = load_net("ai/PBR/checkpoints/Normal/last.pth").cuda().bfloat16()
-    normals.generateNorm(norm_net, "textures/processing/diffuse", "textures/processing/normaldx")
+    model = span()
+    model.load_state_dict(torch.load("ai/PBR/checkpoints/Normal/last.pth"), strict=False).cuda().bfloat16().eval()
+    normals.generateNorm(model, "textures/processing/diffuse", "textures/processing/normaldx")
     for x in tqdm(os.listdir(f"textures/processing/normaldx/"), desc="Generating..."):
         if x.endswith(".png"):
             LightspeedOctahedralConverter.convert_dx_file_to_octahedral(f"textures/processing/normaldx/{x}",
@@ -425,15 +425,16 @@ def generate_pbr_ai():
 
     torch.cuda.empty_cache()
     gc.collect()
+    model = span()
+    model.load_state_dict(torch.load("ai/PBR/checkpoints/Roughness/last.pth"), strict=False).cuda().bfloat16().eval()
 
-    norm_net = load_net("ai/PBR/checkpoints/Roughness/last.pth").cuda().bfloat16()
-
-    roughness.generateRough(norm_net, "textures/processing/diffuse", "textures/processing/roughness")
+    roughness.generateRough(model, "textures/processing/diffuse", "textures/processing/roughness")
     torch.cuda.empty_cache()
     gc.collect()
 
-    norm_net = load_net("ai/PBR/checkpoints/Displacement/last.pth").cuda().bfloat16()
+    model = span()
+    model.load_state_dict(torch.load("ai/PBR/checkpoints/Displacement/last.pth"), strict=False).cuda().bfloat16().eval()
 
-    displacements.generateDisp(norm_net, "textures/processing/diffuse", "textures/processing/displacements")
+    displacements.generateDisp(model, "textures/processing/diffuse", "textures/processing/displacements")
 
     return "Global AI PBR generation is done!"

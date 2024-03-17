@@ -14,7 +14,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 PATH_CHK = "checkpoints/Roughness/latest_net_G.pth"
 
 transformResize = transforms.Compose([
-    transforms.Resize(2048),
+    transforms.Resize(1024),
     transforms.ToTensor()
     # outputs range from -1 to 1
 ])
@@ -58,7 +58,7 @@ def generateRough(net, DIR_FROM, DIR_EVAL):
     net.eval()
     with torch.no_grad():
         for idx, data in enumerate(testloader):
-            img_in = data[0].to(device).bfloat16()
+            img_in = data[0].to(device)
             img_out = net(img_in)
             # print(img_name)
 
@@ -107,10 +107,11 @@ def generateRoughSingle(net, DIR_FROM, DIR_EVAL):
 
 
 if __name__ == "__main__":
-    from model import load_net
+    from model import span
 
     # Define the model
-    model = load_net("./checkpoints/Roughness/last.pth")
+    model = span()
+    model.load_state_dict(torch.load("./checkpoints/Roughness/last.pth"), strict=False)
     model.cuda()
 
     model.eval()

@@ -318,29 +318,3 @@ class span(nn.Module):
         return output
 
 
-def load_net(path):
-    net = span()
-    load_net = torch.load(path, map_location=torch.device("cuda"))
-    try:
-        if "params-ema" in load_net:
-            param_key = "params-ema"
-        elif "params" in load_net:
-            param_key = "params"
-        elif "params_ema" in load_net:
-            param_key = "params_ema"
-        load_net = load_net[param_key]
-    except:
-        pass
-
-    # remove unnecessary 'module.'
-    for k, v in deepcopy(load_net).items():
-        if k.startswith("module."):
-            load_net[k[7:]] = v
-            load_net.pop(k)
-
-    # load_network and send to device
-    torch.cuda.empty_cache()
-
-    return net
-
-
