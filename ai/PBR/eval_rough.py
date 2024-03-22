@@ -11,7 +11,7 @@ from torchvision.utils import save_image
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # %%
-PATH_CHK = "checkpoints/Roughness/latest_net_G.pth"
+PATH_CHK = "checkpoints/Roughness/last.pth"
 
 transformResize = transforms.Compose([
     transforms.Resize(1024),
@@ -112,7 +112,7 @@ if __name__ == "__main__":
     # Define the model
     model = span()
     model.load_state_dict(torch.load("./checkpoints/Roughness/last.pth"), strict=False)
-    model.cuda()
+    model.cuda().bfloat16()
 
     model.eval()
 

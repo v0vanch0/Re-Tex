@@ -103,7 +103,7 @@ def generateDispSingle(net, DIR_FROM, DIR_EVAL):
     net.eval()
     with torch.no_grad():
         for idx, data in enumerate(testloader):
-            img_in = data[0].to(device).bfloat16()
+            img_in = data[0].cuda().bfloat16()
             img_out = net(img_in)
             name = f"{data[1][0]}_disp"
 

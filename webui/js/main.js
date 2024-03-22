@@ -161,11 +161,11 @@ $(document).ready( function () {
 		var geometry = null;
 
 		if( meshname == "plane" )
-			geometry = new THREE.PlaneGeometry( 3, 3, 512, 512 );
+			geometry = new THREE.PlaneGeometry( 3, 3, 1024, 1024 );
 		if( meshname == "cube" )
-			geometry = new THREE.BoxGeometry( 3, 3, 3,512, 512, 512 );
+			geometry = new THREE.BoxGeometry( 3, 3, 3,1024, 1024, 1024 );
 		if( meshname == "sphere" )
-			geometry = new THREE.SphereGeometry( 2, 512, 512 );
+			geometry = new THREE.SphereGeometry( 2, 1024, 1024 );
 
 		mesh = new THREE.Mesh( geometry );
 		mesh.position.x = 0;
@@ -197,7 +197,7 @@ function init() {
 		.load( [ 'px.hdr', 'nx.hdr', 'py.hdr', 'ny.hdr', 'pz.hdr', 'nz.hdr' ],
 			function ( texture ) {
 
-				const geometry = new THREE.PlaneGeometry( 3, 3, 512, 512 );
+				const geometry = new THREE.PlaneGeometry( 3, 3, 1024, 1024 );
 				mesh = new THREE.Mesh( geometry );
 				mesh.position.x = 0;
 				mesh.position.y = 0;
@@ -346,8 +346,9 @@ function updateList() {
 var interestingSentences = [
 	"This may take some time",
 	"Wait till the end",
-	"It's almost done",
-	"Something happening"
+	"Maybe watch YT?",
+	"2 + 2 = 22?",
+	"Please wait..."
 ];
 
 function changeWordsLoading( element ) {
