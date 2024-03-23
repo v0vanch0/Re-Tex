@@ -347,8 +347,9 @@ var interestingSentences = [
 	"This may take some time",
 	"Wait till the end",
 	"Maybe watch YT?",
-	"2 + 2 = 22?",
-	"Please wait..."
+	"2 + 2 = 22",
+	"Too long? Update hardware",
+	"Please wait"
 ];
 
 function changeWordsLoading( element ) {
