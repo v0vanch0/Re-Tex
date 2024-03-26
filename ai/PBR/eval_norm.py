@@ -24,8 +24,6 @@ transform = transforms.Compose([
 ])
 
 transformDoNotResize = transforms.Compose([
-    transforms.Resize(CROP),
-    transforms.CenterCrop(CROP),
     transforms.ToTensor()
     # outputs range from -1 to 1
 ])
@@ -71,7 +69,17 @@ def generateNorm(net, DIR_FROM, DIR_EVAL):
     with torch.no_grad():
         for idx, data in enumerate(testloader):
             img_in = data[0].cuda().bfloat16()
-            img_out = net(img_in)
+            split_size = 256
+            splits = torch.split(img_in, split_size, dim=0)
+
+            # Прогон каждого куска через модель
+            processed_splits = []
+            for split in splits:
+                p_out = net(split)
+                processed_splits.append(p_out)
+
+            # Соединение результатов обратно в один тензор
+            img_out = torch.cat(processed_splits, dim=0)
             # print(img_name)
 
             img_out_filename = os.path.join(output_normal, f"{data[1][0]}_normal.png")
@@ -97,7 +105,17 @@ def generateNormSingle(net, DIR_FROM, DIR_EVAL):
     with torch.no_grad():
         for idx, data in enumerate(testloader):
             img_in = data[0].to(device).bfloat16()
-            img_out = net(img_in)
+            split_size = 256
+            splits = torch.split(img_in, split_size, dim=0)
+
+            # Прогон каждого куска через модель
+            processed_splits = []
+            for split in splits:
+                p_out = net(split)
+                processed_splits.append(p_out)
+
+            # Соединение результатов обратно в один тензор
+            img_out = torch.cat(processed_splits, dim=0)
             # print(img_name)
 
             img_out_filename = os.path.join(output_normal, f"{data[1][0]}_normal.png")

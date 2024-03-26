@@ -12,9 +12,15 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # %%
 PATH_CHK = "checkpoints/Roughness/last.pth"
+CROP = 1024
+transform = transforms.Compose([
+    transforms.Resize(CROP),
+    transforms.CenterCrop(CROP),
+    transforms.ToTensor()
+    # outputs range from -1 to 1
+])
 
-transformResize = transforms.Compose([
-    transforms.Resize(1024),
+transformDoNotResize = transforms.Compose([
     transforms.ToTensor()
     # outputs range from -1 to 1
 ])
@@ -37,8 +43,10 @@ class TestDataset(Dataset):
         img = Image.open(self.file_list[i]).convert('RGB')
         h, w = img.size
 
-        img = transformResize(img)
-
+        if w < 256 or h < 256 or w - 300 > h or h - 300 > w or w > 1024 or h > 1024:
+            img = transform(img)
+        else:
+            img = transformDoNotResize(img)
         return img, self.names[i]
 
 
@@ -51,7 +59,8 @@ def generateRough(net, DIR_FROM, DIR_EVAL):
     data_test = TestDataset(DIR_FROM)
     # print(batch_size)
     testloader = DataLoader(data_test, batch_size=1, shuffle=False,
-                            pin_memory=True)
+                            pin_memory=True, num_workers=12,
+                            persistent_workers=True)
 
     print("\nProcessing roughness files...")
 
@@ -59,7 +68,17 @@ def generateRough(net, DIR_FROM, DIR_EVAL):
     with torch.no_grad():
         for idx, data in enumerate(testloader):
             img_in = data[0].cuda().bfloat16()
-            img_out = net(img_in)
+            split_size = 256
+            splits = torch.split(img_in, split_size, dim=0)
+
+            # Прогон каждого куска через модель
+            processed_splits = []
+            for split in splits:
+                p_out = net(split)
+                processed_splits.append(p_out)
+
+            # Соединение результатов обратно в один тензор
+            img_out = torch.cat(processed_splits, dim=0)
             # print(img_name)
 
             img_out_filename = os.path.join(output_normal, f"{data[1][0]}_rough.png")
@@ -69,6 +88,7 @@ def generateRough(net, DIR_FROM, DIR_EVAL):
 
             im_output = im.filter(ImageFilter.GaussianBlur(0.9))
             im_output.save(img_out_filename)
+            torch.cuda.empty_cache()
 
     print("Done!")
 
@@ -89,7 +109,17 @@ def generateRoughSingle(net, DIR_FROM, DIR_EVAL):
     with torch.no_grad():
         for idx, data in enumerate(testloader):
             img_in = data[0].to(device).bfloat16()
-            img_out = net(img_in)
+            split_size = 256
+            splits = torch.split(img_in, split_size, dim=0)
+
+            # Прогон каждого куска через модель
+            processed_splits = []
+            for split in splits:
+                p_out = net(split)
+                processed_splits.append(p_out)
+
+            # Соединение результатов обратно в один тензор
+            img_out = torch.cat(processed_splits, dim=0)
             # print(img_name)
 
             img_out_filename = os.path.join(output_normal, f"{data[1][0]}_rough.png")
@@ -102,17 +132,18 @@ def generateRoughSingle(net, DIR_FROM, DIR_EVAL):
             im_output = enhancer.enhance(factor)
             im_output = im_output.filter(ImageFilter.GaussianBlur(0.9))
             im_output.save(img_out_filename)
+            torch.cuda.empty_cache()
 
     print("Done!")
 
 
 if __name__ == "__main__":
-    from model import span
+    from model import craft
 
     # Define the model
-    model = span()
+    model = craft()
     model.load_state_dict(torch.load("./checkpoints/Roughness/last.pth"), strict=False)
-    model.cuda().bfloat16()
+    model.cuda().bfloat16().share_memory()
 
     model.eval()
 
