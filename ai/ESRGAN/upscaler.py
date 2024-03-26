@@ -78,7 +78,7 @@ def upscaleFile( name ):
     # read images
     img = cv2.imread(path.replace("..","."), cv2.IMREAD_COLOR)
     height, width, channels = img.shape
-    if( height > 2047 and width > 1023 ):
+    if height > 2047 and width > 1023:
         cv2.imwrite("textures/processing/upscaled/{:s}.png".format(base), img)
         return
 
