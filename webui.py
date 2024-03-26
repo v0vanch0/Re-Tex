@@ -276,4 +276,5 @@ def run_server(runner):
     loop.run_forever()
 
 
-run_server(aiohttp_server())
+if __name__ == "__main__":
+    run_server(aiohttp_server())
