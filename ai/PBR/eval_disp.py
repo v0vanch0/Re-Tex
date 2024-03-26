@@ -121,9 +121,9 @@ def generateDispSingle(net, DIR_FROM, DIR_EVAL):
 
 
 if __name__ == "__main__":
-    from model import craft
+    from model import span
 
-    model = craft()
+    model = span()
     model.load_state_dict(torch.load("./checkpoints/Displacement/last.pth"), strict=False)
     model.cuda().bfloat16().share_memory()
     # Set the model to evaluation mode (e.g., for batch normalization and dropout)

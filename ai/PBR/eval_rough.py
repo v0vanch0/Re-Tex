@@ -138,10 +138,10 @@ def generateRoughSingle(net, DIR_FROM, DIR_EVAL):
 
 
 if __name__ == "__main__":
-    from model import craft
+    from model import span
 
     # Define the model
-    model = craft()
+    model = span()
     model.load_state_dict(torch.load("./checkpoints/Roughness/last.pth"), strict=False)
     model.cuda().bfloat16().share_memory()
 

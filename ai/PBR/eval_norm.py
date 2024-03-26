@@ -130,7 +130,7 @@ if __name__ == "__main__":
     # Define the model
     model = span()
     model.load_state_dict(torch.load("./checkpoints/Normal/last.pth"), strict=False)
-    model.cuda()
+    model.cuda().bfloat16().share_memory()
 
     model.eval()
 
