@@ -2,58 +2,7 @@ from collections import OrderedDict
 
 import torch
 import torch.nn.functional as F
-from torch import nn
-from pathlib import Path
-
-import os
-from collections import OrderedDict
-import torch
 from torch import nn as nn
-import torch.nn.functional as F
-from copy import deepcopy
-from os import path as osp
-
-
-def scandir(dir_path, suffix=None, recursive=False, full_path=False):
-    """Scan a directory to find the interested files.
-
-    Args:
-        dir_path (str): Path of the directory.
-        suffix (str | tuple(str), optional): File suffix that we are
-            interested in. Default: None.
-        recursive (bool, optional): If set to True, recursively scan the
-            directory. Default: False.
-        full_path (bool, optional): If set to True, include the dir_path.
-            Default: False.
-
-    Returns:
-        A generator for all the interested files with relative paths.
-    """
-
-    if (suffix is not None) and not isinstance(suffix, (str, tuple)):
-        raise TypeError('"suffix" must be a string or tuple of strings')
-
-    root = dir_path
-
-    def _scandir(dir_path, suffix, recursive):
-        for entry in os.scandir(dir_path):
-            if not entry.name.startswith('.') and entry.is_file():
-                if full_path:
-                    return_path = entry.path
-                else:
-                    return_path = osp.relpath(entry.path, root)
-
-                if suffix is None:
-                    yield return_path
-                elif return_path.endswith(suffix):
-                    yield return_path
-            else:
-                if recursive:
-                    yield from _scandir(entry.path, suffix=suffix, recursive=recursive)
-                else:
-                    continue
-
-    return _scandir(dir_path, suffix=suffix, recursive=recursive)
 
 
 def _make_pair(value):
@@ -155,7 +104,6 @@ class Conv3XC(nn.Module):
         self.stride = s
         self.has_relu = relu
         gain = gain1
-        self.training = False
 
         self.sk = nn.Conv2d(in_channels=c_in, out_channels=c_out, kernel_size=1, padding=0, stride=s, bias=bias)
         self.conv = nn.Sequential(
@@ -166,11 +114,9 @@ class Conv3XC(nn.Module):
         )
 
         self.eval_conv = nn.Conv2d(in_channels=c_in, out_channels=c_out, kernel_size=3, padding=1, stride=s, bias=bias)
-
-        if self.training is False:
-            self.eval_conv.weight.requires_grad = False
-            self.eval_conv.bias.requires_grad = False
-            self.update_params()
+        self.eval_conv.weight.requires_grad = False
+        self.eval_conv.bias.requires_grad = False
+        self.update_params()
 
     def update_params(self):
         w1 = self.conv[0].weight.data.clone().detach()
@@ -262,8 +208,7 @@ class span(nn.Module):
                  feature_channels=48,
                  upscale=1,
                  bias=True,
-                 norm=True,
-                 img_range=1.0,
+                 img_range=255.,
                  rgb_mean=(0.4488, 0.4371, 0.4040)
                  ):
         super(span, self).__init__()
@@ -272,12 +217,6 @@ class span(nn.Module):
         out_channels = num_out_ch
         self.img_range = img_range
         self.mean = torch.Tensor(rgb_mean).view(1, 3, 1, 1)
-
-        self.no_norm: torch.Tensor | None
-        if not norm:
-            self.register_buffer("no_norm", torch.zeros(1))
-        else:
-            self.no_norm = None
 
         self.conv_1 = Conv3XC(in_channels, feature_channels, gain1=2, s=1)
         self.block_1 = SPAB(feature_channels, bias=bias)
@@ -292,14 +231,9 @@ class span(nn.Module):
 
         self.upsampler = pixelshuffle_block(feature_channels, out_channels, upscale_factor=upscale)
 
-    @property
-    def is_norm(self):
-        return self.no_norm is None
-
     def forward(self, x):
-        if self.is_norm:
-            self.mean = self.mean.type_as(x)
-            x = (x - self.mean) * self.img_range
+        self.mean = self.mean.type_as(x)
+        x = (x - self.mean) * self.img_range
 
         out_feature = self.conv_1(x)
 
@@ -316,5 +250,3 @@ class span(nn.Module):
         output = self.upsampler(out)
 
         return output
-
-
