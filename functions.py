@@ -1,3 +1,5 @@
+import customtkinter
+
 import load as loader
 import upscale as upscaler
 import pbr as materializer
@@ -229,7 +231,7 @@ def ai_normal_single(texture):
 
     model = span()
     model.load_state_dict(torch.load("ai/PBR/checkpoints/Normal/last.pth"), strict=False)
-    model.cuda().bfloat16().eval()
+    model.cuda().eval()
     normals.generateNormSingle(model, path, "textures/processing/normaldx")
     LightspeedOctahedralConverter.convert_dx_file_to_octahedral(f"textures/processing/normaldx/{texture}_normal.png",
                                                                 f"textures/processing/normals/{texture}_normal.png")
@@ -254,7 +256,7 @@ def ai_roughness_single(texture):
     gc.collect()
     model = span()
     model.load_state_dict(torch.load("ai/PBR/checkpoints/Roughness/last.pth"), strict=False)
-    model.cuda().bfloat16().eval()
+    model.cuda().eval()
 
     roughness.generateRoughSingle(model, path, "textures/processing/roughness")
     return "Roughness map is done!"
@@ -270,7 +272,7 @@ def ai_parallax_single(texture):
 
     model = span()
     model.load_state_dict(torch.load("ai/PBR/checkpoints/Displacement/last.pth"), strict=False)
-    model.cuda().bfloat16().eval()
+    model.cuda().eval()
 
     displacements.generateDispSingle(model, path, "textures/processing/displacements")
     return "Displacement map is done!"
@@ -372,7 +374,11 @@ def delete_texs():
 
 
 def write_mod():
-    mod_dir = "OctoTexGUI"
+    dialog = customtkinter.CTkInputDialog(text="Type in a name of mod", title="Re-Tex",
+                                          button_fg_color="#031F56", fg_color="#011337",
+                                          entry_fg_color="#011337", entry_text_color="#E6E6E6",
+                                          text_color="white")
+    mod_dir = dialog.get_input()
     isExist = os.path.exists(f"{config.rtx_remix_dir}/mods/{mod_dir}")
     if not isExist:
         with ZipFile("mods/modTemplate.zip", 'r') as zObject:
@@ -422,7 +428,7 @@ def generate_pbr_ai():
     gc.collect()
     model = span()
     model.load_state_dict(torch.load("ai/PBR/checkpoints/Normal/last.pth"), strict=False)
-    model.cuda().bfloat16().eval().share_memory()
+    model.cuda().eval().share_memory()
     normals.generateNorm(model, "textures/processing/diffuse", "textures/processing/normaldx")
     for x in tqdm(os.listdir(f"textures/processing/normaldx/"), desc="Generating..."):
         if x.endswith(".png"):
@@ -433,14 +439,14 @@ def generate_pbr_ai():
     gc.collect()
     model = span()
     model.load_state_dict(torch.load("ai/PBR/checkpoints/Roughness/last.pth"), strict=False)
-    model.cuda().bfloat16().eval().share_memory()
+    model.cuda().eval().share_memory()
     roughness.generateRough(model, "textures/processing/diffuse", "textures/processing/roughness")
     torch.cuda.empty_cache()
     gc.collect()
 
     model = span()
     model.load_state_dict(torch.load("ai/PBR/checkpoints/Displacement/last.pth"), strict=False)
-    model.cuda().bfloat16().eval().share_memory()
+    model.cuda().eval().share_memory()
     displacements.generateDisp(model, "textures/processing/diffuse", "textures/processing/displacements")
 
     return "Global AI PBR generation is done!"

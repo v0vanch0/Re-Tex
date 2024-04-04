@@ -67,7 +67,7 @@ def generateRough(net, DIR_FROM, DIR_EVAL):
     net.eval()
     with torch.no_grad():
         for idx, data in enumerate(testloader):
-            img_in = data[0].cuda().bfloat16()
+            img_in = data[0].cuda()
             split_size = 256
             splits = torch.split(img_in, split_size, dim=0)
 
@@ -85,9 +85,7 @@ def generateRough(net, DIR_FROM, DIR_EVAL):
             save_image(img_out, img_out_filename, value_range=(-1, 1), normalize=True)
 
             im = Image.open(img_out_filename).convert("L")
-
-            im_output = im.filter(ImageFilter.GaussianBlur(0.9))
-            im_output.save(img_out_filename)
+            im.save(img_out_filename)
             torch.cuda.empty_cache()
 
     print("Done!")
@@ -108,7 +106,7 @@ def generateRoughSingle(net, DIR_FROM, DIR_EVAL):
     net.eval()
     with torch.no_grad():
         for idx, data in enumerate(testloader):
-            img_in = data[0].to(device).bfloat16()
+            img_in = data[0].to(device)
             split_size = 256
             splits = torch.split(img_in, split_size, dim=0)
 
@@ -143,7 +141,7 @@ if __name__ == "__main__":
     # Define the model
     model = span()
     model.load_state_dict(torch.load("./checkpoints/Roughness/last.pth"), strict=False)
-    model.cuda().bfloat16().share_memory()
+    model.cuda().share_memory()
 
     model.eval()
 

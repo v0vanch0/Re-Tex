@@ -68,7 +68,7 @@ def generateNorm(net, DIR_FROM, DIR_EVAL):
     net.eval()
     with torch.no_grad():
         for idx, data in enumerate(testloader):
-            img_in = data[0].cuda().bfloat16()
+            img_in = data[0].cuda()
             split_size = 256
             splits = torch.split(img_in, split_size, dim=0)
 
@@ -104,7 +104,7 @@ def generateNormSingle(net, DIR_FROM, DIR_EVAL):
     net.eval()
     with torch.no_grad():
         for idx, data in enumerate(testloader):
-            img_in = data[0].to(device).bfloat16()
+            img_in = data[0].to(device)
             split_size = 256
             splits = torch.split(img_in, split_size, dim=0)
 
@@ -130,7 +130,7 @@ if __name__ == "__main__":
     # Define the model
     model = span()
     model.load_state_dict(torch.load("./checkpoints/Normal/last.pth"), strict=False)
-    model.cuda().bfloat16().share_memory()
+    model.cuda().share_memory()
 
     model.eval()
 

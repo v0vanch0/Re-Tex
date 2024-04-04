@@ -68,7 +68,7 @@ def generateDisp(net, DIR_FROM, DIR_EVAL):
     net.eval()
     with torch.no_grad():
         for idx, data in enumerate(testloader):
-            img_in = data[0].cuda().bfloat16()
+            img_in = data[0].cuda()
             # Разделение тензора на куски по 256 элементов
             split_size = 256
             splits = torch.split(img_in, split_size, dim=0)
@@ -107,7 +107,7 @@ def generateDispSingle(net, DIR_FROM, DIR_EVAL):
     net.eval()
     with torch.no_grad():
         for idx, data in enumerate(testloader):
-            img_in = data[0].cuda().bfloat16()
+            img_in = data[0].cuda()
             img_out = net(img_in)
             name = f"{data[1][0]}_disp"
 
@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
     model = span()
     model.load_state_dict(torch.load("./checkpoints/Displacement/last.pth"), strict=False)
-    model.cuda().bfloat16().share_memory()
+    model.cuda().share_memory()
     # Set the model to evaluation mode (e.g., for batch normalization and dropout)
     model.eval()
 
